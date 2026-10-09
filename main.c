@@ -1,7 +1,14 @@
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <commdlg.h>
+#endif
 
 #define WINDOW_WIDTH 1100
 #define WINDOW_HEIGHT 700
@@ -175,6 +182,21 @@ static int save_graph(const graph_t *graph, const char *path)
 
 static int choose_file(char *path, size_t path_size, int save)
 {
+#ifdef _WIN32
+    OPENFILENAMEA dialog = {0};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.lpstrFile = path;
+    dialog.nMaxFile = (DWORD)path_size;
+    dialog.lpstrFilter = "Graph files (*.graph;*.txt)\0*.graph;*.txt\0All files (*.*)\0*.*\0";
+    dialog.lpstrDefExt = "graph";
+    dialog.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    if (save) {
+        dialog.Flags |= OFN_OVERWRITEPROMPT;
+        return GetSaveFileNameA(&dialog) != 0;
+    }
+    dialog.Flags |= OFN_FILEMUSTEXIST;
+    return GetOpenFileNameA(&dialog) != 0;
+#else
     const char *command = save
         ? "zenity --file-selection --save --confirm-overwrite --title='Save graph' "
           "--file-filter='Graph files | *.graph *.txt' --file-filter='All files | *'"
@@ -191,6 +213,7 @@ static int choose_file(char *path, size_t path_size, int save)
 
     path[strcspn(path, "\r\n")] = '\0';
     return path[0] != '\0';
+#endif
 }
 
 static int load_graph(graph_t *graph, const char *path)
